@@ -4,34 +4,29 @@ import pandas as pd
 # Load data
 df = pd.read_csv("Products.csv")
 
-# Set page config for better mobile display
+# Set page config
 st.set_page_config(page_title="Price Checker", layout="centered")
 
-# App title
+# Title
 st.markdown("<h2 style='text-align: center;'>📦 Product Price Checker</h2>", unsafe_allow_html=True)
 st.markdown("---")
 
-# Input section
-st.markdown("### 🔍 Enter Product ID to Check Price:")
+# Create dropdown options: "101 - Notebook", etc.
+dropdown_options = [f"{row['Product ID']} - {row['Product Name']}" for _, row in df.iterrows()]
 
-product_id = st.text_input("Product ID", key="product_id")
+selected_option = st.selectbox("Select Product", options=dropdown_options)
 
-# Button
-if st.button("Check Price"):
-    if product_id.strip() == "":
-        st.warning("Please enter a Product ID.")
-    else:
-        try:
-            product_id_int = int(product_id)
-            result = df[df['Product ID'] == product_id_int]
-            if not result.empty:
-                name = result.iloc[0]['Product Name']
-                price = result.iloc[0]['Price']
-                st.success(f"✅ Product: **{name}**\n💰 Price: ₹{price}")
-            else:
-                st.error("❌ Product ID not found.")
-        except ValueError:
-            st.error("❌ Please enter a valid numeric Product ID.")
+# Extract Product ID from selected dropdown value
+product_id = int(selected_option.split(" - ")[0])
+
+# Show result
+result = df[df['Product ID'] == product_id]
+if not result.empty:
+    name = result.iloc[0]['Product Name']
+    price = result.iloc[0]['Price']
+    st.success(f"✅ Product: **{name}**\n💰 Price: ₹{price}")
+else:
+    st.error("❌ Product ID not found.")
 
 # Footer
 st.markdown("---")
