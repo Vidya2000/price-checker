@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # Load the CSV
-df = pd.read_csv("products.csv")
+df = pd.read_csv("Products.csv")
 
 st.title("🛒 Price Checker App")
 
