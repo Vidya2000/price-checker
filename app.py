@@ -1,28 +1,31 @@
 import streamlit as st
 import pandas as pd
 
-# Load CSV
+# Load the product data
 df = pd.read_csv("Products.csv")
 
-# Set page config
+# Convert Product ID column to string (just in case)
+df['Product ID'] = df['Product ID'].astype(str)
+
+# Page settings
 st.set_page_config(page_title="Price Checker", layout="centered")
 
 # Title
-st.markdown("<h2 style='text-align: center;'>📦 Product Price Checker</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center;'>🔍 Product Price Checker</h2>", unsafe_allow_html=True)
 st.markdown("---")
 
-# Product ID dropdown
-product_ids = df['Product ID'].tolist()
-selected_id = st.selectbox("Select Product ID", options=product_ids)
+# Text input for Product ID
+product_id = st.text_input("Enter Product ID (e.g., b101, cb103, ...)", "").strip()
 
-# Fetch product info
-result = df[df['Product ID'] == selected_id]
-if not result.empty:
-    name = result.iloc[0]['Product Name']
-    price = result.iloc[0]['Price']
-    st.success(f"✅ Product: **{name}**\n💰 Price: ₹{price}")
-else:
-    st.error("❌ Product not found.")
+# Lookup
+if product_id:
+    result = df[df['Product ID'].str.lower() == product_id.lower()]
+    if not result.empty:
+        name = result.iloc[0]['Product Name']
+        price = result.iloc[0]['Price']
+        st.success(f"✅ Product: **{name}**\n💰 Price: ₹{price}")
+    else:
+        st.warning("⚠️ Product ID not found. Please check and try again.")
 
 # Footer
 st.markdown("---")
