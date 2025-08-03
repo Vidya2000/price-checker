@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# Load data
+# Load CSV
 df = pd.read_csv("Products.csv")
 
 # Set page config
@@ -11,22 +11,18 @@ st.set_page_config(page_title="Price Checker", layout="centered")
 st.markdown("<h2 style='text-align: center;'>📦 Product Price Checker</h2>", unsafe_allow_html=True)
 st.markdown("---")
 
-# Create dropdown options: "101 - Notebook", etc.
-dropdown_options = [f"{row['Product ID']} - {row['Product Name']}" for _, row in df.iterrows()]
+# Product ID dropdown
+product_ids = df['Product ID'].tolist()
+selected_id = st.selectbox("Select Product ID", options=product_ids)
 
-selected_option = st.selectbox("Select Product", options=dropdown_options)
-
-# Extract Product ID from selected dropdown value
-product_id = int(selected_option.split(" - ")[0])
-
-# Show result
-result = df[df['Product ID'] == product_id]
+# Fetch product info
+result = df[df['Product ID'] == selected_id]
 if not result.empty:
     name = result.iloc[0]['Product Name']
     price = result.iloc[0]['Price']
     st.success(f"✅ Product: **{name}**\n💰 Price: ₹{price}")
 else:
-    st.error("❌ Product ID not found.")
+    st.error("❌ Product not found.")
 
 # Footer
 st.markdown("---")
