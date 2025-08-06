@@ -21,7 +21,7 @@ st.markdown("---")
 if role == "Viewer":
     st.header("🔍 Price Checker")
     product_id = st.text_input("**Enter Product ID**")
-    
+
     if product_id:
         result = df[df['Product ID'].astype(str).str.lower() == product_id.lower()]
         if not result.empty:
@@ -41,11 +41,11 @@ elif role == "Admin":
 
         submitted = st.form_submit_button("Add Product")
         if submitted:
-            new_row = {
+            new_row = pd.DataFrame([{
                 "Product ID": prod_id,
                 "Product Name": prod_name,
                 "Price": price
-            }
-            df = df.append(new_row, ignore_index=True)
+            }])
+            df = pd.concat([df, new_row], ignore_index=True)
             df.to_csv(DATA_FILE, index=False)
             st.success("✅ Product added successfully!")
