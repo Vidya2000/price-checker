@@ -3,7 +3,8 @@ import pandas as pd
 import os
 
 # CSV file
-DATA_FILE = "products.csv"
+DATA_FILE = "Products.csv"
+ADMIN_PASSWORD = "admin123"  # Change this to your desired password
 
 # Load existing data or create a new DataFrame
 if os.path.exists(DATA_FILE):
@@ -11,13 +12,13 @@ if os.path.exists(DATA_FILE):
 else:
     df = pd.DataFrame(columns=["Product ID", "Product Name", "Price"])
 
-st.title("🔐 Login")
+st.title("🛒 Product Price Checker")
 
 # Select role
-role = st.selectbox("Select role", ["Viewer", "Admin"])
+role = st.selectbox("Select Role", ["Viewer", "Admin"])
 st.markdown("---")
 
-# Viewer: Check product price
+# Viewer Role
 if role == "Viewer":
     st.header("🔍 Price Checker")
     product_id = st.text_input("**Enter Product ID**")
@@ -30,22 +31,30 @@ if role == "Viewer":
         else:
             st.error("Product not found.")
 
-# Admin: Add product
+# Admin Role
 elif role == "Admin":
-    st.header("🛠 Admin Panel - Add Product")
+    st.header("🔐 Admin Login")
 
-    with st.form("add_product_form"):
-        prod_id = st.text_input("Product ID")
-        prod_name = st.text_input("Product Name")
-        price = st.number_input("Price", min_value=0)
+    password = st.text_input("Enter Admin Password", type="password")
 
-        submitted = st.form_submit_button("Add Product")
-        if submitted:
-            new_row = pd.DataFrame([{
-                "Product ID": prod_id,
-                "Product Name": prod_name,
-                "Price": price
-            }])
-            df = pd.concat([df, new_row], ignore_index=True)
-            df.to_csv(DATA_FILE, index=False)
-            st.success("✅ Product added successfully!")
+    if password == ADMIN_PASSWORD:
+        st.success("Access granted ✅")
+        st.header("🛠 Admin Panel - Add Product")
+
+        with st.form("add_product_form"):
+            prod_id = st.text_input("Product ID")
+            prod_name = st.text_input("Product Name")
+            price = st.number_input("Price", min_value=0)
+
+            submitted = st.form_submit_button("Add Product")
+            if submitted:
+                new_row = pd.DataFrame([{
+                    "Product ID": prod_id,
+                    "Product Name": prod_name,
+                    "Price": price
+                }])
+                df = pd.concat([df, new_row], ignore_index=True)
+                df.to_csv(DATA_FILE, index=False)
+                st.success("✅ Product added successfully!")
+    elif password:
+        st.error("Incorrect password ❌")
