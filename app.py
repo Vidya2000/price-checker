@@ -1,51 +1,42 @@
 import streamlit as st
+import gspread
 import pandas as pd
-import os
+from oauth2client.service_account import ServiceAccountCredentials
 
-# CSV file
-DATA_FILE = "Products.csv"
+# Google Sheets setup
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)
+client = gspread.authorize(creds)
 
-# Load existing data or create a new DataFrame
-if os.path.exists(DATA_FILE):
-    df = pd.read_csv(DATA_FILE)
-else:
-    df = pd.DataFrame(columns=["Product ID", "Product Name", "Price"])
+sheet = client.open("ProductDatabase").sheet1  # use your actual sheet name
 
-st.title("🔐 Login")
+# Get data
+data = sheet.get_all_records()
+df = pd.DataFrame(data)
 
-# Select role
-role = st.selectbox("Select role", ["Viewer", "Admin"])
+# UI
+st.title("📦 Product Price Checker")
+
+product_id = st.text_input("**Enter Product ID:**")
+
+if product_id:
+    result = df[df['Product ID'].str.lower() == product_id.lower()]
+    if not result.empty:
+        row = result.iloc[0]
+        st.markdown(f"**✅ Product:** {row['Product Name']}")
+        st.markdown(f"**💰 Price:** ₹{row['Price']}")
+    else:
+        st.error("Product not found.")
+
+# Admin section
 st.markdown("---")
+st.markdown("### 🔐 Admin: Add New Product")
+with st.form("admin_form"):
+    new_id = st.text_input("New Product ID")
+    new_name = st.text_input("Product Name")
+    new_price = st.number_input("Price", min_value=1)
+    submitted = st.form_submit_button("Add Product")
 
-# Viewer: Check product price
-if role == "Viewer":
-    st.header("🔍 Price Checker")
-    product_id = st.text_input("**Enter Product ID**")
-
-    if product_id:
-        result = df[df['Product ID'].astype(str).str.lower() == product_id.lower()]
-        if not result.empty:
-            st.markdown(f"**Product**: {result.iloc[0]['Product Name']}")
-            st.markdown(f"**Price**: ₹{result.iloc[0]['Price']}")
-        else:
-            st.error("Product not found.")
-
-# Admin: Add product
-elif role == "Admin":
-    st.header("🛠 Admin Panel - Add Product")
-
-    with st.form("add_product_form"):
-        prod_id = st.text_input("Product ID")
-        prod_name = st.text_input("Product Name")
-        price = st.number_input("Price", min_value=0)
-
-        submitted = st.form_submit_button("Add Product")
-        if submitted:
-            new_row = pd.DataFrame([{
-                "Product ID": prod_id,
-                "Product Name": prod_name,
-                "Price": price
-            }])
-            df = pd.concat([df, new_row], ignore_index=True)
-            df.to_csv(DATA_FILE, index=False)
-            st.success("✅ Product added successfully!")
+    if submitted and new_id and new_name:
+        sheet.append_row([new_id, new_name, new_price])
+        st.success("Product added successfully!")
