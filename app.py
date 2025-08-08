@@ -120,8 +120,10 @@ if st.session_state.admin_logged_in:
             except sqlite3.IntegrityError:
                 st.error("❌ Product ID already exists!")
 
-    st.subheader("✏️ Edit or 🗑️ Delete Product")
+    # REFRESH products list here before edit/delete UI
     products = fetch_products()
+
+    st.subheader("✏️ Edit or 🗑️ Delete Product")
 
     if products:
         selected_product = st.selectbox(
@@ -130,12 +132,11 @@ if st.session_state.admin_logged_in:
         )
         prod_id = selected_product.split(" - ")[0]
 
-        # Pre-fill edit fields
         edit_name = st.text_input("Edit Product Name",
                                   value=[p[1] for p in products if p[0] == prod_id][0])
         edit_price = st.number_input("Edit Product Price (₹)",
                                      min_value=0, step=1,
-                                     value=[p[2] for p in products if p[0] == prod_id][0])
+                                     value=int([p[2] for p in products if p[0] == prod_id][0]))
 
         if st.button("Update Product", key="update_product"):
             update_product(prod_id, edit_name.strip(), edit_price)
