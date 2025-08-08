@@ -77,7 +77,7 @@ if not st.session_state.admin_logged_in and not st.session_state.show_login:
     st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
     if st.button("**Admin Login**", key="welcome_login"):
         st.session_state.show_login = True
-        st.experimental_rerun()
+        st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
 # Admin login form
@@ -88,19 +88,19 @@ if st.session_state.show_login and not st.session_state.admin_logged_in:
             st.session_state.admin_logged_in = True
             st.session_state.show_login = False
             st.success("✅ Logged in as Admin")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("❌ Incorrect Password")
     if st.button("Back", key="back_btn"):
         st.session_state.show_login = False
-        st.experimental_rerun()
+        st.rerun()
 
 # Logout button
 if st.session_state.admin_logged_in:
     if st.button("Logout", key="admin_logout"):
         st.session_state.admin_logged_in = False
         st.success("✅ Logged out successfully")
-        st.experimental_rerun()
+        st.rerun()
 
 # Admin panel (Add/Edit/Delete)
 if st.session_state.admin_logged_in:
@@ -116,7 +116,7 @@ if st.session_state.admin_logged_in:
             try:
                 add_product(new_id.strip(), new_name.strip(), new_price)
                 st.success("✅ Product added successfully!")
-                st.experimental_rerun()
+                st.rerun()
             except sqlite3.IntegrityError:
                 st.error("❌ Product ID already exists!")
 
@@ -140,12 +140,12 @@ if st.session_state.admin_logged_in:
         if st.button("Update Product", key="update_product"):
             update_product(prod_id, edit_name.strip(), edit_price)
             st.success("✅ Product updated successfully!")
-            st.experimental_rerun()
+            st.rerun()
 
         if st.button("Delete Product", key="delete_product"):
             delete_product(prod_id)
             st.warning("🗑️ Product deleted successfully!")
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.info("No products found in the database.")
 
