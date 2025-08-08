@@ -10,8 +10,6 @@ st.title("🛒 Price Checker")
 # --- Database Connection ---
 conn = sqlite3.connect('products.db')
 c = conn.cursor()
-
-# Create table if it doesn't exist
 c.execute('''
     CREATE TABLE IF NOT EXISTS products (
         id TEXT PRIMARY KEY,
@@ -26,6 +24,8 @@ if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 if "show_login" not in st.session_state:
     st.session_state.show_login = False
+if "password_input" not in st.session_state:
+    st.session_state.password_input = ""
 
 # --- Centered Admin Login ---
 center_col = st.columns([1, 1, 1])[1]  # Middle column
@@ -33,26 +33,33 @@ center_col = st.columns([1, 1, 1])[1]  # Middle column
 with center_col:
     if not st.session_state.is_admin:
         if not st.session_state.show_login:
-            if st.button("**🔑 Admin Login**"):  # Bold text
+            if st.button("**🔑 Admin Login**"):
                 st.session_state.show_login = True
+                st.rerun()
         else:
             st.markdown("**Enter Admin Password**")
-            password = st.text_input("", type="password", key="pwd")
-            login_col, cancel_col = st.columns(2)
-            with login_col:
+            st.session_state.password_input = st.text_input("", type="password")
+
+            col_login, col_cancel = st.columns(2)
+            with col_login:
                 if st.button("Login"):
-                    if password == "admin123":  # Change password here
+                    if st.session_state.password_input == "admin123":  # Change password here
                         st.session_state.is_admin = True
                         st.session_state.show_login = False
+                        st.session_state.password_input = ""
+                        st.rerun()
                     else:
                         st.error("❌ Incorrect password!")
-            with cancel_col:
+            with col_cancel:
                 if st.button("Cancel"):
                     st.session_state.show_login = False
+                    st.session_state.password_input = ""
+                    st.rerun()
     else:
         st.success("✅ Admin Mode Active")
         if st.button("🚪 Logout"):
             st.session_state.is_admin = False
+            st.rerun()
 
 # --- Admin Panel ---
 if st.session_state.is_admin:
