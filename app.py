@@ -3,24 +3,25 @@ import sqlite3
 
 DB_NAME = "products.db"
 
-# ---------- DATABASE FUNCTIONS ----------
+# ---------- Database Setup ----------
 def init_db():
     conn = sqlite3.connect(DB_NAME, check_same_thread=False)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS products
-                 (id TEXT PRIMARY KEY, name TEXT, price REAL)''')
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            price REAL NOT NULL
+        )
+    """)
     conn.commit()
     conn.close()
 
 def add_product(product_id, name, price):
     conn = sqlite3.connect(DB_NAME, check_same_thread=False)
     c = conn.cursor()
-    try:
-        c.execute("INSERT INTO products (id, name, price) VALUES (?, ?, ?)", 
-                  (product_id, name, price))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        st.error("⚠️ Product ID already exists. Please choose another ID.")
+    c.execute("INSERT OR REPLACE INTO products (id, name, price) VALUES (?, ?, ?)", (product_id, name, price))
+    conn.commit()
     conn.close()
 
 def fetch_products():
@@ -34,7 +35,7 @@ def fetch_products():
 def fetch_product_by_id(product_id):
     conn = sqlite3.connect(DB_NAME, check_same_thread=False)
     c = conn.cursor()
-    c.execute("SELECT name, price FROM products WHERE id = ?", (product_id,))
+    c.execute("SELECT id, name, price FROM products WHERE id = ?", (product_id,))
     product = c.fetchone()
     conn.close()
     return product
@@ -46,72 +47,89 @@ def delete_product(product_id):
     conn.commit()
     conn.close()
 
-# ---------- APP ----------
-init_db()
+# ---------- UI ----------
+def admin_page():
+    st.subheader("🔐 Admin Panel")
 
-# Login system
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+    menu = ["Add Product", "View Products", "Search Product", "Delete Product"]
+    choice = st.sidebar.selectbox("Choose Action", menu)
 
-st.title("🛒 Product Management System")
-
-if not st.session_state.logged_in:
-    st.success("Welcome! Please log in to continue.")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username == "admin" and password == "admin":
-            st.session_state.logged_in = True
-            st.success("✅ Login successful!")
-        else:
-            st.error("❌ Invalid credentials")
-else:
-    st.sidebar.success("✅ Logged in as admin")
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.experimental_rerun()
-
-    menu = st.sidebar.radio("Navigation", ["Add Product", "View Products", "Search Product", "Delete Product"])
-
-    if menu == "Add Product":
+    if choice == "Add Product":
         st.subheader("➕ Add a New Product")
-        product_id = st.text_input("Enter Product ID (unique)")
-        name = st.text_input("Product Name")
-        price = st.number_input("Product Price", min_value=0.0, step=0.1)
-
+        product_id = st.number_input("Enter Product ID", min_value=1, step=1)
+        name = st.text_input("Enter Product Name")
+        price = st.number_input("Enter Product Price", min_value=0.0, format="%.2f")
         if st.button("Add Product"):
-            if product_id.strip() == "" or name.strip() == "":
-                st.error("⚠️ Product ID and Name cannot be empty")
-            else:
-                add_product(product_id, name, price)
-                st.success(f"✅ Product '{name}' added successfully with ID {product_id}")
+            add_product(product_id, name, price)
+            st.success(f"✅ Product '{name}' added with ID {product_id}")
 
-    elif menu == "View Products":
-        st.subheader("📦 All Products")
+    elif choice == "View Products":
+        st.subheader("📦 Product List")
         products = fetch_products()
         if products:
             for p in products:
-                st.write(f"🆔 {p[0]} | **{p[1]}** - 💲{p[2]}")
+                st.write(f"🆔 {p[0]} | 📦 {p[1]} | 💰 {p[2]}")
         else:
-            st.info("No products found.")
+            st.warning("No products found.")
 
-    elif menu == "Search Product":
+    elif choice == "Search Product":
         st.subheader("🔍 Search Product by ID")
-        search_id = st.text_input("Enter Product ID to search")
+        search_id = st.number_input("Enter Product ID", min_value=1, step=1)
         if st.button("Search"):
             product = fetch_product_by_id(search_id)
             if product:
-                st.success(f"✅ Found: {product[0]} - 💲{product[1]}")
+                st.success(f"Found: 🆔 {product[0]} | 📦 {product[1]} | 💰 {product[2]}")
             else:
-                st.error("❌ Product not found")
+                st.error("❌ Product not found.")
 
-    elif menu == "Delete Product":
-        st.subheader("🗑️ Delete Product by ID")
-        del_id = st.text_input("Enter Product ID to delete")
+    elif choice == "Delete Product":
+        st.subheader("🗑 Delete Product")
+        del_id = st.number_input("Enter Product ID to Delete", min_value=1, step=1)
         if st.button("Delete"):
-            product = fetch_product_by_id(del_id)
+            delete_product(del_id)
+            st.success(f"✅ Product with ID {del_id} deleted.")
+
+
+def user_page():
+    st.subheader("👤 User Panel")
+    st.write("Browse and search products (No login required).")
+
+    option = st.radio("Choose Action", ["View Products", "Search Product"])
+
+    if option == "View Products":
+        st.subheader("📦 Product List")
+        products = fetch_products()
+        if products:
+            for p in products:
+                st.write(f"🆔 {p[0]} | 📦 {p[1]} | 💰 {p[2]}")
+        else:
+            st.warning("No products available.")
+
+    elif option == "Search Product":
+        st.subheader("🔍 Search Product by ID")
+        search_id = st.number_input("Enter Product ID", min_value=1, step=1)
+        if st.button("Search"):
+            product = fetch_product_by_id(search_id)
             if product:
-                delete_product(del_id)
-                st.success(f"✅ Product with ID {del_id} deleted")
+                st.success(f"Found: 🆔 {product[0]} | 📦 {product[1]} | 💰 {product[2]}")
             else:
-                st.error("❌ Product ID not found")
+                st.error("❌ Product not found.")
+
+# ---------- Main ----------
+def main():
+    st.title("🛒 Price Checker App")
+    init_db()
+
+    role = st.radio("Select Role", ["User", "Admin"])
+
+    if role == "Admin":
+        password = st.text_input("Enter Admin Password", type="password")
+        if password == "admin123":  # simple password check
+            admin_page()
+        else:
+            st.error("Invalid Password")
+    else:
+        user_page()
+
+if __name__ == "__main__":
+    main()
