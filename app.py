@@ -1,50 +1,20 @@
 import streamlit as st
 import sqlite3
+import os
 
-DB_NAME = 'products.db'
+# Permanent database location inside the Streamlit app directory
+DB_NAME = os.path.join(os.path.dirname(__file__), "products.db")
 
-# Initialize DB (run once)
+# Initialize DB
 def init_db():
     conn = sqlite3.connect(DB_NAME, check_same_thread=False)
     c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS products (
-            id TEXT PRIMARY KEY,
-            name TEXT,
-            price INTEGER
-        )
-    ''')
+    c.execute("""CREATE TABLE IF NOT EXISTS products (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 name TEXT NOT NULL,
+                 price REAL NOT NULL)""")
     conn.commit()
     conn.close()
-
-def add_product(new_id, new_name, new_price):
-    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
-    c = conn.cursor()
-    try:
-        c.execute("INSERT INTO products (id, name, price) VALUES (?, ?, ?)", 
-                  (new_id, new_name, new_price))
-        conn.commit()
-    finally:
-        conn.close()
-
-def update_product(prod_id, edit_name, edit_price):
-    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
-    c = conn.cursor()
-    try:
-        c.execute("UPDATE products SET name = ?, price = ? WHERE id = ?", 
-                  (edit_name, edit_price, prod_id))
-        conn.commit()
-    finally:
-        conn.close()
-
-def delete_product(prod_id):
-    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
-    c = conn.cursor()
-    try:
-        c.execute("DELETE FROM products WHERE id = ?", (prod_id,))
-        conn.commit()
-    finally:
-        conn.close()
 
 def fetch_products():
     conn = sqlite3.connect(DB_NAME, check_same_thread=False)
@@ -62,102 +32,78 @@ def fetch_product_by_id(product_id):
     conn.close()
     return product
 
-# Initialize DB at app start
+def add_product(name, price):
+    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+    c = conn.cursor()
+    c.execute("INSERT INTO products (name, price) VALUES (?, ?)", (name, price))
+    conn.commit()
+    conn.close()
+
+def update_product(prod_id, name, price):
+    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+    c = conn.cursor()
+    c.execute("UPDATE products SET name = ?, price = ? WHERE id = ?", (name, price, prod_id))
+    conn.commit()
+    conn.close()
+
+def delete_product(prod_id):
+    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+    c = conn.cursor()
+    c.execute("DELETE FROM products WHERE id = ?", (prod_id,))
+    conn.commit()
+    conn.close()
+
+# Streamlit App
+st.title("📦 Product Manager")
+
+# Initialize DB on first run
 init_db()
 
-# Session states for login management
-if "admin_logged_in" not in st.session_state:
-    st.session_state.admin_logged_in = False
-if "show_login" not in st.session_state:
-    st.session_state.show_login = False
+menu = ["View Products", "Add Product", "Edit Product", "Delete Product"]
+choice = st.sidebar.selectbox("Menu", menu)
 
-# Welcome message and admin login button
-if not st.session_state.admin_logged_in and not st.session_state.show_login:
-    st.success("### Welcome to Veerabhadreshwara Enterprises")
-    st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
-    if st.button("**Admin Login**", key="welcome_login"):
-        st.session_state.show_login = True
-        st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# Admin login form
-if st.session_state.show_login and not st.session_state.admin_logged_in:
-    admin_password = st.text_input("Enter Admin Password", type="password")
-    if st.button("Login", key="admin_login"):
-        if admin_password == "admin123":  # Change your password here
-            st.session_state.admin_logged_in = True
-            st.session_state.show_login = False
-            st.success("✅ Logged in as Admin")
-            st.rerun()
-        else:
-            st.error("❌ Incorrect Password")
-    if st.button("Back", key="back_btn"):
-        st.session_state.show_login = False
-        st.rerun()
-
-# Logout button
-if st.session_state.admin_logged_in:
-    if st.button("Logout", key="admin_logout"):
-        st.session_state.admin_logged_in = False
-        st.success("✅ Logged out successfully")
-        st.rerun()
-
-# Admin panel (Add/Edit/Delete)
-if st.session_state.admin_logged_in:
-    st.subheader("➕ Add New Product")
-    new_id = st.text_input("Product ID (e.g., B101)")
-    new_name = st.text_input("Product Name")
-    new_price = st.number_input("Product Price (₹)", min_value=0, step=1)
-
-    if st.button("Add Product", key="add_product"):
-        if not new_id.strip() or not new_name.strip():
-            st.error("❌ Product ID and Name cannot be empty.")
-        else:
-            try:
-                add_product(new_id.strip(), new_name.strip(), new_price)
-                st.success("✅ Product added successfully!")
-                st.rerun()
-            except sqlite3.IntegrityError:
-                st.error("❌ Product ID already exists!")
-
-    # REFRESH products list here before edit/delete UI
+if choice == "View Products":
+    st.subheader("All Products")
     products = fetch_products()
-
-    st.subheader("✏️ Edit or 🗑️ Delete Product")
-
     if products:
-        selected_product = st.selectbox(
-            "Select Product to Edit/Delete",
-            [f"{p[0]} - {p[1]} (₹{p[2]})" for p in products]
-        )
-        prod_id = selected_product.split(" - ")[0]
+        for prod in products:
+            st.write(f"ID: {prod[0]} | Name: {prod[1]} | Price: ${prod[2]:.2f}")
+    else:
+        st.info("No products found. Add some!")
 
-        edit_name = st.text_input("Edit Product Name",
-                                  value=[p[1] for p in products if p[0] == prod_id][0])
-        edit_price = st.number_input("Edit Product Price (₹)",
-                                     min_value=0, step=1,
-                                     value=int([p[2] for p in products if p[0] == prod_id][0]))
+elif choice == "Add Product":
+    st.subheader("Add a New Product")
+    name = st.text_input("Product Name")
+    price = st.number_input("Price", min_value=0.0, format="%.2f")
+    if st.button("Add"):
+        if name.strip():
+            add_product(name.strip(), price)
+            st.success(f"✅ Product '{name}' added successfully!")
+        else:
+            st.warning("⚠ Please enter a product name")
 
-        if st.button("Update Product", key="update_product"):
-            update_product(prod_id, edit_name.strip(), edit_price)
-            st.success("✅ Product updated successfully!")
-            st.rerun()
+elif choice == "Edit Product":
+    st.subheader("Edit Product")
+    products = fetch_products()
+    if products:
+        prod_id = st.selectbox("Select Product ID", [p[0] for p in products])
+        product = fetch_product_by_id(prod_id)
+        if product:
+            new_name = st.text_input("New Name", product[0])
+            new_price = st.number_input("New Price", value=product[1], format="%.2f")
+            if st.button("Update"):
+                update_product(prod_id, new_name.strip(), new_price)
+                st.success("✅ Product updated successfully!")
+    else:
+        st.info("No products to edit.")
 
-        if st.button("Delete Product", key="delete_product"):
+elif choice == "Delete Product":
+    st.subheader("Delete Product")
+    products = fetch_products()
+    if products:
+        prod_id = st.selectbox("Select Product ID", [p[0] for p in products])
+        if st.button("Delete"):
             delete_product(prod_id)
-            st.warning("🗑️ Product deleted successfully!")
-            st.rerun()
+            st.success("🗑️ Product deleted successfully!")
     else:
-        st.info("No products found in the database.")
-
-# Price checker for all users
-st.markdown("### 🔍 Check Product Price")
-product_id = st.text_input("**Enter Product ID (e.g., B101):**")
-
-if st.button("Check Price", key="check_price"):
-    product = fetch_product_by_id(product_id.strip())
-    if product:
-        st.markdown(f"**✅ Product:** {product[0]}")
-        st.markdown(f"**💰 Price:** ₹{product[1]}")
-    else:
-        st.error("❌ Product not found!")
+        st.info("No products to delete.")
