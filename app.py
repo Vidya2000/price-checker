@@ -1,19 +1,26 @@
 import streamlit as st
 import sqlite3
-import os
 
-# Permanent database location inside the Streamlit app directory
-DB_NAME = os.path.join(os.path.dirname(__file__), "products.db")
+DB_NAME = "products.db"
 
-# Initialize DB
+# ---------- DATABASE FUNCTIONS ----------
 def init_db():
     conn = sqlite3.connect(DB_NAME, check_same_thread=False)
     c = conn.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS products (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                 name TEXT NOT NULL,
-                 price REAL NOT NULL)""")
+    c.execute('''CREATE TABLE IF NOT EXISTS products
+                 (id TEXT PRIMARY KEY, name TEXT, price REAL)''')
     conn.commit()
+    conn.close()
+
+def add_product(product_id, name, price):
+    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO products (id, name, price) VALUES (?, ?, ?)", 
+                  (product_id, name, price))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        st.error("⚠️ Product ID already exists. Please choose another ID.")
     conn.close()
 
 def fetch_products():
@@ -32,78 +39,79 @@ def fetch_product_by_id(product_id):
     conn.close()
     return product
 
-def add_product(name, price):
+def delete_product(product_id):
     conn = sqlite3.connect(DB_NAME, check_same_thread=False)
     c = conn.cursor()
-    c.execute("INSERT INTO products (name, price) VALUES (?, ?)", (name, price))
+    c.execute("DELETE FROM products WHERE id = ?", (product_id,))
     conn.commit()
     conn.close()
 
-def update_product(prod_id, name, price):
-    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
-    c = conn.cursor()
-    c.execute("UPDATE products SET name = ?, price = ? WHERE id = ?", (name, price, prod_id))
-    conn.commit()
-    conn.close()
-
-def delete_product(prod_id):
-    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
-    c = conn.cursor()
-    c.execute("DELETE FROM products WHERE id = ?", (prod_id,))
-    conn.commit()
-    conn.close()
-
-# Streamlit App
-st.title("📦 Product Manager")
-
-# Initialize DB on first run
+# ---------- APP ----------
 init_db()
 
-menu = ["View Products", "Add Product", "Edit Product", "Delete Product"]
-choice = st.sidebar.selectbox("Menu", menu)
+# Login system
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-if choice == "View Products":
-    st.subheader("All Products")
-    products = fetch_products()
-    if products:
-        for prod in products:
-            st.write(f"ID: {prod[0]} | Name: {prod[1]} | Price: ${prod[2]:.2f}")
-    else:
-        st.info("No products found. Add some!")
+st.title("🛒 Product Management System")
 
-elif choice == "Add Product":
-    st.subheader("Add a New Product")
-    name = st.text_input("Product Name")
-    price = st.number_input("Price", min_value=0.0, format="%.2f")
-    if st.button("Add"):
-        if name.strip():
-            add_product(name.strip(), price)
-            st.success(f"✅ Product '{name}' added successfully!")
+if not st.session_state.logged_in:
+    st.success("Welcome! Please log in to continue.")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if username == "admin" and password == "admin":
+            st.session_state.logged_in = True
+            st.success("✅ Login successful!")
         else:
-            st.warning("⚠ Please enter a product name")
+            st.error("❌ Invalid credentials")
+else:
+    st.sidebar.success("✅ Logged in as admin")
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.experimental_rerun()
 
-elif choice == "Edit Product":
-    st.subheader("Edit Product")
-    products = fetch_products()
-    if products:
-        prod_id = st.selectbox("Select Product ID", [p[0] for p in products])
-        product = fetch_product_by_id(prod_id)
-        if product:
-            new_name = st.text_input("New Name", product[0])
-            new_price = st.number_input("New Price", value=product[1], format="%.2f")
-            if st.button("Update"):
-                update_product(prod_id, new_name.strip(), new_price)
-                st.success("✅ Product updated successfully!")
-    else:
-        st.info("No products to edit.")
+    menu = st.sidebar.radio("Navigation", ["Add Product", "View Products", "Search Product", "Delete Product"])
 
-elif choice == "Delete Product":
-    st.subheader("Delete Product")
-    products = fetch_products()
-    if products:
-        prod_id = st.selectbox("Select Product ID", [p[0] for p in products])
+    if menu == "Add Product":
+        st.subheader("➕ Add a New Product")
+        product_id = st.text_input("Enter Product ID (unique)")
+        name = st.text_input("Product Name")
+        price = st.number_input("Product Price", min_value=0.0, step=0.1)
+
+        if st.button("Add Product"):
+            if product_id.strip() == "" or name.strip() == "":
+                st.error("⚠️ Product ID and Name cannot be empty")
+            else:
+                add_product(product_id, name, price)
+                st.success(f"✅ Product '{name}' added successfully with ID {product_id}")
+
+    elif menu == "View Products":
+        st.subheader("📦 All Products")
+        products = fetch_products()
+        if products:
+            for p in products:
+                st.write(f"🆔 {p[0]} | **{p[1]}** - 💲{p[2]}")
+        else:
+            st.info("No products found.")
+
+    elif menu == "Search Product":
+        st.subheader("🔍 Search Product by ID")
+        search_id = st.text_input("Enter Product ID to search")
+        if st.button("Search"):
+            product = fetch_product_by_id(search_id)
+            if product:
+                st.success(f"✅ Found: {product[0]} - 💲{product[1]}")
+            else:
+                st.error("❌ Product not found")
+
+    elif menu == "Delete Product":
+        st.subheader("🗑️ Delete Product by ID")
+        del_id = st.text_input("Enter Product ID to delete")
         if st.button("Delete"):
-            delete_product(prod_id)
-            st.success("🗑️ Product deleted successfully!")
-    else:
-        st.info("No products to delete.")
+            product = fetch_product_by_id(del_id)
+            if product:
+                delete_product(del_id)
+                st.success(f"✅ Product with ID {del_id} deleted")
+            else:
+                st.error("❌ Product ID not found")
