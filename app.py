@@ -1,22 +1,20 @@
 import streamlit as st
 import sqlite3
 
-# Database setup
-def create_table():
+# ---------- Database Setup ----------
+def init_db():
     conn = sqlite3.connect("inventory.db")
     c = conn.cursor()
-    # Make sure 'id' is NOT AUTOINCREMENT, so you can enter manually
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY,
-            name TEXT,
-            price REAL,
-            stock INTEGER
-        )
-    """)
+    c.execute('''CREATE TABLE IF NOT EXISTS products (
+                    id TEXT PRIMARY KEY,
+                    name TEXT,
+                    price REAL,
+                    stock INTEGER
+                )''')
     conn.commit()
     conn.close()
 
+# ---------- Add Product ----------
 def add_product(product_id, name, price, stock):
     conn = sqlite3.connect("inventory.db")
     c = conn.cursor()
@@ -25,20 +23,21 @@ def add_product(product_id, name, price, stock):
                   (product_id, name, price, stock))
         conn.commit()
     except sqlite3.IntegrityError:
-        st.error(f"❌ Product ID {product_id} already exists. Please use a unique ID.")
+        st.error("❌ Product ID already exists. Please use a unique ID.")
     conn.close()
 
+# ---------- View Products ----------
 def view_products():
     conn = sqlite3.connect("inventory.db")
     c = conn.cursor()
-    c.execute("SELECT * FROM products")
-    data = c.fetchall()
+    c.execute("SELECT id, name, price, stock FROM products")
+    rows = c.fetchall()
     conn.close()
-    return data
+    return rows
 
-# Streamlit UI
+# ---------- Main Streamlit App ----------
 def main():
-    st.title("📦 Inventory Management")
+    st.title("📦 Inventory Management System")
 
     menu = ["Add Product", "View Products"]
     choice = st.sidebar.selectbox("Menu", menu)
@@ -46,26 +45,29 @@ def main():
     if choice == "Add Product":
         st.subheader("➕ Add a New Product")
 
-        product_id = st.number_input("Enter Product ID", min_value=1, step=1)
+        product_id = st.text_input("Enter Product ID")
         name = st.text_input("Enter Product Name")
-        price = st.number_input("Enter Price", min_value=0.0, step=0.1)
+        price = st.number_input("Enter Price", min_value=0.0, format="%.2f")
         stock = st.number_input("Enter Stock", min_value=0, step=1)
 
         if st.button("Add Product"):
-            if name.strip() == "":
-                st.error("Product name cannot be empty.")
+            if product_id.strip() == "":
+                st.error("⚠️ Product ID cannot be empty!")
             else:
                 add_product(product_id, name, price, stock)
-                st.success(f"✅ Added {name} (ID: {product_id}) successfully!")
+                st.success(f"✅ Product '{name}' added successfully!")
 
     elif choice == "View Products":
         st.subheader("📋 Product List")
         products = view_products()
         if products:
-            st.table(products)
+            import pandas as pd
+            df = pd.DataFrame(products, columns=["Product ID", "Product Name", "Price", "Stock"])
+            st.dataframe(df, use_container_width=True)
         else:
-            st.info("No products found.")
+            st.info("No products available.")
 
-if __name__ == "__main__":
-    create_table()
+# Run app
+if __name__ == '__main__':
+    init_db()
     main()
