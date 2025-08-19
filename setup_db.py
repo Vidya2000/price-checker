@@ -18,6 +18,4 @@ CREATE TABLE products (
 
 conn.commit()
 conn.close()
-
 print("Database initialized!")
-
