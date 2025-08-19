@@ -1,19 +1,23 @@
 import sqlite3
 
-# Connect (creates the DB file if it doesn't exist)
-conn = sqlite3.connect('products.db')
-c = conn.cursor()
+conn = sqlite3.connect("inventory.db")
+cursor = conn.cursor()
 
-# Create table
-c.execute('''
-    CREATE TABLE IF NOT EXISTS products (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        price INTEGER
-    )
-''')
+# Drop old table if exists
+cursor.execute("DROP TABLE IF EXISTS products")
+
+# Create new table with stock column
+cursor.execute("""
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    price REAL NOT NULL,
+    stock INTEGER NOT NULL
+)
+""")
 
 conn.commit()
 conn.close()
 
 print("Database initialized!")
+
