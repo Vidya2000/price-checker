@@ -1,19 +1,22 @@
 import streamlit as st
 import sqlite3
 
-# ========== DATABASE SETUP ==========
+# --- Database Setup ---
 def init_db():
     conn = sqlite3.connect("products.db")
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS products (
-                    id TEXT PRIMARY KEY,
-                    name TEXT,
-                    price REAL,
-                    stock INTEGER
-                )''')
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            price REAL NOT NULL,
+            stock INTEGER NOT NULL
+        )
+    """)
     conn.commit()
     conn.close()
 
+# --- Add Product ---
 def add_product(product_id, name, price, stock):
     conn = sqlite3.connect("products.db")
     c = conn.cursor()
@@ -22,17 +25,10 @@ def add_product(product_id, name, price, stock):
                   (product_id, name, price, stock))
         conn.commit()
     except sqlite3.IntegrityError:
-        st.error("❌ Product ID already exists! Please use a unique ID.")
+        st.error("Product ID already exists. Please use a different ID.")
     conn.close()
 
-def view_products():
-    conn = sqlite3.connect("products.db")
-    c = conn.cursor()
-    c.execute("SELECT * FROM products")
-    data = c.fetchall()
-    conn.close()
-    return data
-
+# --- Update Stock ---
 def update_stock(product_id, new_stock):
     conn = sqlite3.connect("products.db")
     c = conn.cursor()
@@ -40,71 +36,53 @@ def update_stock(product_id, new_stock):
     conn.commit()
     conn.close()
 
-def delete_product(product_id):
+# --- Get All Products ---
+def get_all_products():
     conn = sqlite3.connect("products.db")
     c = conn.cursor()
-    c.execute("DELETE FROM products WHERE id = ?", (product_id,))
-    conn.commit()
+    c.execute("SELECT * FROM products")
+    rows = c.fetchall()
     conn.close()
+    return rows
 
+# --- Streamlit UI ---
+def main():
+    st.title("📦 Inventory Management System")
 
-# ========== STREAMLIT UI ==========
-st.title("📦 Inventory Management System")
+    menu = ["Add Product", "Update Stock", "View Products"]
+    choice = st.sidebar.selectbox("Menu", menu)
 
-menu = ["Add Product", "View Products", "Update Stock", "Delete Product"]
-choice = st.sidebar.selectbox("Menu", menu)
+    if choice == "Add Product":
+        st.subheader("➕ Add a New Product")
+        product_id = st.text_input("Product ID")
+        name = st.text_input("Product Name")
+        price = st.number_input("Price", min_value=0.0, step=0.01)
+        stock = st.number_input("Stock", min_value=0, step=1)
 
-init_db()  # Initialize database
+        if st.button("Add Product"):
+            if product_id and name:
+                add_product(product_id, name, price, stock)
+                st.success(f"✅ Product '{name}' added successfully!")
+            else:
+                st.error("Please enter both Product ID and Name.")
 
-# Add Product
-if choice == "Add Product":
-    st.subheader("➕ Add New Product")
-    product_id = st.text_input("Product ID (Enter manually)")
-    name = st.text_input("Product Name")
-    price = st.number_input("Price", min_value=0.0, format="%.2f")
-    stock = st.number_input("Stock Quantity", min_value=0, step=1)
+    elif choice == "Update Stock":
+        st.subheader("✏️ Update Product Stock")
+        product_id = st.text_input("Enter Product ID")
+        new_stock = st.number_input("New Stock", min_value=0, step=1)
 
-    if st.button("Add Product"):
-        if product_id.strip() == "":
-            st.error("⚠️ Product ID cannot be empty.")
-        else:
-            add_product(product_id, name, price, stock)
-            st.success(f"✅ Product '{name}' added successfully!")
-
-# View Products
-elif choice == "View Products":
-    st.subheader("📋 Product List")
-    products = view_products()
-    if products:
-        st.table(products)
-    else:
-        st.info("No products found.")
-
-# Update Stock
-elif choice == "Update Stock":
-    st.subheader("✏️ Update Stock")
-    products = view_products()
-    product_ids = [p[0] for p in products]
-
-    if product_ids:
-        product_id = st.selectbox("Select Product ID", product_ids)
-        new_stock = st.number_input("Enter New Stock", min_value=0, step=1)
         if st.button("Update Stock"):
             update_stock(product_id, new_stock)
-            st.success(f"✅ Stock updated for Product ID {product_id}")
-    else:
-        st.warning("No products available to update.")
+            st.success(f"✅ Stock updated for Product ID: {product_id}")
 
-# Delete Product
-elif choice == "Delete Product":
-    st.subheader("🗑️ Delete Product")
-    products = view_products()
-    product_ids = [p[0] for p in products]
+    elif choice == "View Products":
+        st.subheader("📋 Product List")
+        products = get_all_products()
+        if products:
+            st.table(products)
+        else:
+            st.info("No products found.")
 
-    if product_ids:
-        product_id = st.selectbox("Select Product ID to Delete", product_ids)
-        if st.button("Delete"):
-            delete_product(product_id)
-            st.success(f"✅ Product {product_id} deleted successfully")
-    else:
-        st.warning("No products available to delete.")
+if __name__ == "__main__":
+    init_db()
+    main()
