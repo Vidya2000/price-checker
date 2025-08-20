@@ -169,27 +169,31 @@ def main():
 
     if product_ids:
         search_id = st.selectbox("Select Product ID to Search", product_ids)
+
         product = fetch_product_by_id(search_id)
         if product:
             df = pd.DataFrame([product], columns=["Product ID", "Product Name", "Price", "Stock"])
             st.dataframe(df, use_container_width=True)
 
-            # Sell button
-            if st.button("Sell Product"):
-                with st.form("sell_form", clear_on_submit=True):
-                    sale_password = st.text_input("Enter Sale Password", type="password")
-                    qty = st.number_input("Quantity to Sell", min_value=1, step=1)
-                    submitted = st.form_submit_button("Confirm Sale")
+            # Sell form
+            with st.form("sell_form", clear_on_submit=True):
+                sale_password = st.text_input("Enter Sale Password", type="password")
+                qty = st.number_input("Quantity to Sell", min_value=1, step=1)
+                submitted = st.form_submit_button("Sell Product")
 
-                    if submitted:
-                        if sale_password == SALE_PASSWORD:
-                            success = reduce_stock(search_id, qty)
-                            if success:
-                                st.success(f"✅ Sold {qty} units of '{product[1]}'. Stock updated!")
-                            else:
-                                st.error("❌ Not enough stock available!")
+                if submitted:
+                    if sale_password == SALE_PASSWORD:
+                        success = reduce_stock(search_id, qty)
+                        if success:
+                            st.success(f"✅ Sold {qty} units of '{product[1]}'. Stock updated!")
+                            # Refresh product details after selling
+                            updated_product = fetch_product_by_id(search_id)
+                            updated_df = pd.DataFrame([updated_product], columns=["Product ID", "Product Name", "Price", "Stock"])
+                            st.dataframe(updated_df, use_container_width=True)
                         else:
-                            st.error("❌ Invalid Sale Password!")
+                            st.error("❌ Not enough stock available!")
+                    else:
+                        st.error("❌ Invalid Sale Password!")
     else:
         st.info("No products available to search.")
 
