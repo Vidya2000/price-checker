@@ -26,6 +26,14 @@ def view_products():
     conn.close()
     return rows
 
+def fetch_product_by_id(product_id):
+    conn = sqlite3.connect("inventory.db")
+    c = conn.cursor()
+    c.execute("SELECT id, name, price, stock FROM products WHERE id=?", (product_id,))
+    row = c.fetchone()
+    conn.close()
+    return row
+
 def update_product(product_id, name, price, stock):
     conn = sqlite3.connect("inventory.db")
     c = conn.cursor()
@@ -46,77 +54,110 @@ def delete_product(product_id):
 def main():
     st.title("📦 Inventory Management System")
 
-    menu = ["Add Product", "View Products", "Update Product", "Delete Product"]
-    choice = st.sidebar.selectbox("Menu", menu)
-
     create_table()
 
-    # ADD PRODUCT
-    if choice == "Add Product":
-        st.subheader("➕ Add a New Product")
-        product_id = st.text_input("Enter Product ID")
-        name = st.text_input("Enter Product Name")
-        price = st.number_input("Enter Price", min_value=0.0, format="%.2f")
-        stock = st.number_input("Enter Stock", min_value=0, step=1)
+    # Session state for login
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
 
-        if st.button("Add Product"):
-            if product_id.strip() == "":
-                st.error("⚠️ Product ID cannot be empty!")
+    # --- ADMIN LOGIN SECTION ---
+    if not st.session_state.logged_in:
+        st.subheader("🔑 Admin Login")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+
+        if st.button("Login"):
+            if username == "admin" and password == "admin":
+                st.session_state.logged_in = True
+                st.success("✅ Login successful! You now have admin access.")
             else:
-                try:
-                    add_product(product_id, name, price, stock)
-                    st.success(f"✅ Product '{name}' added successfully!")
-                except sqlite3.IntegrityError:
-                    st.error("❌ Product ID already exists!")
+                st.error("❌ Invalid username or password")
+    else:
+        st.success("✅ Logged in as Admin")
+        if st.button("Logout"):
+            st.session_state.logged_in = False
+            st.experimental_rerun()
 
-    # VIEW PRODUCTS
-    elif choice == "View Products":
-        st.subheader("📋 Product List")
-        products = view_products()
-        if products:
-            st.dataframe(products, use_container_width=True, hide_index=True,
-                         column_config={
-                             0: "Product ID",
-                             1: "Product Name",
-                             2: "Price",
-                             3: "Stock"
-                         })
+        # --- ADMIN FEATURES ---
+        st.subheader("🛠️ Admin Controls")
+        tabs = st.tabs(["➕ Add Product", "📋 View Products", "✏️ Update Product", "🗑️ Delete Product"])
+
+        # ADD PRODUCT
+        with tabs[0]:
+            st.subheader("Add a New Product")
+            product_id = st.text_input("Enter Product ID")
+            name = st.text_input("Enter Product Name")
+            price = st.number_input("Enter Price", min_value=0.0, format="%.2f")
+            stock = st.number_input("Enter Stock", min_value=0, step=1)
+
+            if st.button("Add Product"):
+                if product_id.strip() == "":
+                    st.error("⚠️ Product ID cannot be empty!")
+                else:
+                    try:
+                        add_product(product_id, name, price, stock)
+                        st.success(f"✅ Product '{name}' added successfully!")
+                    except sqlite3.IntegrityError:
+                        st.error("❌ Product ID already exists!")
+
+        # VIEW PRODUCTS
+        with tabs[1]:
+            st.subheader("All Products")
+            products = view_products()
+            if products:
+                st.dataframe(products, use_container_width=True, hide_index=True,
+                             column_config={
+                                 0: "Product ID",
+                                 1: "Product Name",
+                                 2: "Price",
+                                 3: "Stock"
+                             })
+            else:
+                st.info("No products available.")
+
+        # UPDATE PRODUCT
+        with tabs[2]:
+            st.subheader("Update Product")
+            products = view_products()
+            product_ids = [p[0] for p in products]
+
+            if product_ids:
+                selected_id = st.selectbox("Select Product ID to Update", product_ids)
+                product = [p for p in products if p[0] == selected_id][0]
+
+                new_name = st.text_input("Product Name", value=product[1])
+                new_price = st.number_input("Price", min_value=0.0, value=product[2], format="%.2f")
+                new_stock = st.number_input("Stock", min_value=0, value=product[3], step=1)
+
+                if st.button("Update"):
+                    update_product(selected_id, new_name, new_price, new_stock)
+                    st.success(f"✅ Product '{selected_id}' updated successfully!")
+            else:
+                st.info("No products available to update.")
+
+        # DELETE PRODUCT
+        with tabs[3]:
+            st.subheader("Delete Product")
+            products = view_products()
+            product_ids = [p[0] for p in products]
+
+            if product_ids:
+                selected_id = st.selectbox("Select Product ID to Delete", product_ids)
+                if st.button("Delete"):
+                    delete_product(selected_id)
+                    st.success(f"✅ Product '{selected_id}' deleted successfully!")
+            else:
+                st.info("No products available to delete.")
+
+    # --- SEARCH PRODUCT (Visible for everyone) ---
+    st.subheader("🔍 Search Product")
+    search_id = st.text_input("Enter Product ID to Search")
+    if st.button("Search"):
+        product = fetch_product_by_id(search_id)
+        if product:
+            st.success(f"🆔 {product[0]} | **{product[1]}** | 💲{product[2]} | Stock: {product[3]}")
         else:
-            st.info("No products available.")
-
-    # UPDATE PRODUCT
-    elif choice == "Update Product":
-        st.subheader("✏️ Update Product")
-        products = view_products()
-        product_ids = [p[0] for p in products]
-
-        if product_ids:
-            selected_id = st.selectbox("Select Product ID to Update", product_ids)
-            product = [p for p in products if p[0] == selected_id][0]
-
-            new_name = st.text_input("Product Name", value=product[1])
-            new_price = st.number_input("Price", min_value=0.0, value=product[2], format="%.2f")
-            new_stock = st.number_input("Stock", min_value=0, value=product[3], step=1)
-
-            if st.button("Update"):
-                update_product(selected_id, new_name, new_price, new_stock)
-                st.success(f"✅ Product '{selected_id}' updated successfully!")
-        else:
-            st.info("No products available to update.")
-
-    # DELETE PRODUCT
-    elif choice == "Delete Product":
-        st.subheader("🗑️ Delete Product")
-        products = view_products()
-        product_ids = [p[0] for p in products]
-
-        if product_ids:
-            selected_id = st.selectbox("Select Product ID to Delete", product_ids)
-            if st.button("Delete"):
-                delete_product(selected_id)
-                st.success(f"✅ Product '{selected_id}' deleted successfully!")
-        else:
-            st.info("No products available to delete.")
+            st.error("❌ Product not found")
 
 
 if __name__ == "__main__":
