@@ -1,92 +1,102 @@
 import sqlite3
-import csv
 
-DB_NAME = "inventory.db"
+# Connect to database
+conn = sqlite3.connect("inventory.db")
+cursor = conn.cursor()
 
-
-def init_db():
-    """Initialize database with products table"""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS products (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        price REAL NOT NULL,
-        stock INTEGER NOT NULL
-    )
-    """)
-    conn.commit()
-    conn.close()
+# Create table if not exists
+cursor.execute('''CREATE TABLE IF NOT EXISTS products (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    price REAL NOT NULL,
+                    stock INTEGER NOT NULL)''')
+conn.commit()
 
 
-def import_products_from_csv(filename):
-    """Import products from CSV into database"""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+# Add Product
+def add_product():
+    try:
+        id = int(input("Enter Product ID: "))
+        name = input("Enter Product Name: ")
+        price = float(input("Enter Product Price: "))
+        stock = int(input("Enter Stock Quantity: "))
 
-    with open(filename, newline="", encoding="utf-8") as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            try:
-                cursor.execute("""
-                    INSERT OR IGNORE INTO products (id, name, price, stock)
-                    VALUES (?, ?, ?, ?)
-                """, (row["id"], row["name"], float(row["price"]), int(row["stock"])))
-            except Exception as e:
-                print(f"Failed to insert row: {row} | Error: {e}")
-
-    conn.commit()
-    conn.close()
-    print("Products imported successfully!")
+        cursor.execute("INSERT INTO products (id, name, price, stock) VALUES (?, ?, ?, ?)",
+                       (id, name, price, stock))
+        conn.commit()
+        print("✅ Product added successfully!\n")
+    except sqlite3.IntegrityError:
+        print("❌ Error: Product ID already exists!\n")
 
 
-def update_stock(product_id, quantity):
-    """Update product stock after purchase"""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+# Update Product
+def update_product():
+    id = int(input("Enter Product ID to update: "))
+    cursor.execute("SELECT * FROM products WHERE id=?", (id,))
+    product = cursor.fetchone()
 
-    cursor.execute("SELECT stock FROM products WHERE id = ?", (product_id,))
-    result = cursor.fetchone()
+    if product:
+        name = input(f"Enter new name ({product[1]}): ") or product[1]
+        price = input(f"Enter new price ({product[2]}): ") or product[2]
+        stock = input(f"Enter new stock ({product[3]}): ") or product[3]
 
-    if result:
-        current_stock = result[0]
-        if current_stock >= quantity:
-            cursor.execute("UPDATE products SET stock = stock - ? WHERE id = ?", (quantity, product_id))
-            conn.commit()
-            print("Stock updated successfully!")
-        else:
-            print("Not enough stock available.")
+        cursor.execute("UPDATE products SET name=?, price=?, stock=? WHERE id=?",
+                       (name, float(price), int(stock), id))
+        conn.commit()
+        print("✅ Product updated successfully!\n")
     else:
-        print("Product not found.")
-
-    conn.close()
+        print("❌ Product not found!\n")
 
 
-def main():
-    init_db()
+# Delete Product
+def delete_product():
+    id = int(input("Enter Product ID to delete: "))
+    cursor.execute("DELETE FROM products WHERE id=?", (id,))
+    conn.commit()
+    print("✅ Product deleted successfully!\n")
 
+
+# Search Product
+def search_product():
+    keyword = input("Enter product name or ID to search: ")
+    cursor.execute("SELECT * FROM products WHERE name LIKE ? OR id LIKE ?", 
+                   (f"%{keyword}%", f"%{keyword}%"))
+    results = cursor.fetchall()
+
+    if results:
+        for row in results:
+            print(row)
+    else:
+        print("❌ No product found.\n")
+
+
+# Menu
+def menu():
     while True:
-        print("\n===== Inventory Management =====")
-        print("1. Import products from CSV")
-        print("2. Update stock")
-        print("3. Exit")
+        print("\n====== Inventory Management ======")
+        print("1. Add Product")
+        print("2. Update Product")
+        print("3. Delete Product")
+        print("4. Search Product")
+        print("5. Exit")
 
-        choice = input("Enter choice: ")
+        choice = input("Enter your choice: ")
 
         if choice == "1":
-            filename = input("Enter CSV filename (e.g., products.csv): ")
-            import_products_from_csv(filename)
+            add_product()
         elif choice == "2":
-            product_id = int(input("Enter product ID: "))
-            quantity = int(input("Enter quantity to reduce: "))
-            update_stock(product_id, quantity)
+            update_product()
         elif choice == "3":
-            print("Exiting program...")
+            delete_product()
+        elif choice == "4":
+            search_product()
+        elif choice == "5":
+            print("👋 Exiting program. Goodbye!")
             break
         else:
-            print("Invalid choice, try again.")
+            print("❌ Invalid choice! Try again.\n")
 
 
 if __name__ == "__main__":
-    main()
+    menu()
+    conn.close()
