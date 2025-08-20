@@ -22,19 +22,6 @@ def add_product(product_id, name, price, stock):
     conn.commit()
     conn.close()
 
-def bulk_add_products(df):
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    for _, row in df.iterrows():
-        try:
-            c.execute("INSERT INTO products (id, name, price, stock) VALUES (?, ?, ?, ?)",
-                      (str(row["id"]), str(row["name"]), float(row["price"]), int(row["stock"])))
-        except sqlite3.IntegrityError:
-            # skip if product already exists
-            pass
-    conn.commit()
-    conn.close()
-
 def view_products():
     conn = sqlite3.connect("inventory.db")
     c = conn.cursor()
@@ -111,13 +98,7 @@ def main():
 
         # --- ADMIN FEATURES ---
         st.subheader("🛠️ Admin Controls")
-        tabs = st.tabs([
-            "➕ Add Product",
-            "📥 Bulk Upload (CSV)",
-            "📋 View Products",
-            "✏️ Update Product",
-            "🗑️ Delete Product"
-        ])
+        tabs = st.tabs(["➕ Add Product", "📋 View Products", "✏️ Update Product", "🗑️ Delete Product"])
 
         # ADD PRODUCT
         with tabs[0]:
@@ -137,21 +118,8 @@ def main():
                     except sqlite3.IntegrityError:
                         st.error("❌ Product ID already exists!")
 
-        # BULK UPLOAD
-        with tabs[1]:
-            st.subheader("Upload CSV for Bulk Products")
-            st.info("CSV format must have columns: **id, name, price, stock**")
-            csv_file = st.file_uploader("Upload CSV", type=["csv"])
-            if csv_file is not None:
-                df = pd.read_csv(csv_file)
-                st.write("Preview of uploaded data:")
-                st.dataframe(df)
-                if st.button("Upload to Database"):
-                    bulk_add_products(df)
-                    st.success("✅ Products uploaded successfully!")
-
         # VIEW PRODUCTS
-        with tabs[2]:
+        with tabs[1]:
             st.subheader("All Products")
             products = view_products()
             if products:
@@ -161,7 +129,7 @@ def main():
                 st.info("No products available.")
 
         # UPDATE PRODUCT
-        with tabs[3]:
+        with tabs[2]:
             st.subheader("Update Product")
             products = view_products()
             product_ids = [p[0] for p in products]
@@ -181,7 +149,7 @@ def main():
                 st.info("No products available to update.")
 
         # DELETE PRODUCT
-        with tabs[4]:
+        with tabs[3]:
             st.subheader("Delete Product")
             products = view_products()
             product_ids = [p[0] for p in products]
