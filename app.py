@@ -147,14 +147,31 @@ def main():
 
     # --- SEARCH PRODUCT (Visible for everyone) ---
     st.subheader("🔍 Search Product")
-    search_id = st.text_input("Enter Product ID to Search")
+
+    products = view_products()
+    product_ids = [p[0] for p in products]
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        search_id = st.text_input("Enter Product ID manually")
+
+    with col2:
+        selected_id = st.selectbox("Or select Product ID", [""] + product_ids)
+
+    # Decide which input to use
+    final_id = search_id.strip() if search_id.strip() else selected_id
+
     if st.button("Search"):
-        product = fetch_product_by_id(search_id)
-        if product:
-            df = pd.DataFrame([product], columns=["Product ID", "Product Name", "Price", "Stock"])
-            st.dataframe(df, use_container_width=True)
+        if final_id:
+            product = fetch_product_by_id(final_id)
+            if product:
+                df = pd.DataFrame([product], columns=["Product ID", "Product Name", "Price", "Stock"])
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.error("❌ Product not found")
         else:
-            st.error("❌ Product not found")
+            st.warning("⚠️ Please enter or select a Product ID.")
 
 
 if __name__ == "__main__":
