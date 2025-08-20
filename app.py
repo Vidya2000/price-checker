@@ -18,14 +18,6 @@ def add_product(product_id, name, price, stock):
     conn.commit()
     conn.close()
 
-def view_products():
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("SELECT id, name, price, stock FROM products")
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
 def fetch_product_by_id(product_id):
     conn = sqlite3.connect("inventory.db")
     c = conn.cursor()
@@ -80,7 +72,7 @@ def main():
 
         # --- ADMIN FEATURES ---
         st.subheader("🛠️ Admin Controls")
-        tabs = st.tabs(["➕ Add Product", "📋 View Products", "✏️ Update Product", "🗑️ Delete Product"])
+        tabs = st.tabs(["➕ Add Product", "✏️ Update Product", "🗑️ Delete Product"])
 
         # ADD PRODUCT
         with tabs[0]:
@@ -100,23 +92,8 @@ def main():
                     except sqlite3.IntegrityError:
                         st.error("❌ Product ID already exists!")
 
-        # VIEW PRODUCTS
-        with tabs[1]:
-            st.subheader("All Products")
-            products = view_products()
-            if products:
-                st.dataframe(products, use_container_width=True, hide_index=True,
-                             column_config={
-                                 0: "Product ID",
-                                 1: "Product Name",
-                                 2: "Price",
-                                 3: "Stock"
-                             })
-            else:
-                st.info("No products available.")
-
         # UPDATE PRODUCT
-        with tabs[2]:
+        with tabs[1]:
             st.subheader("Update Product")
             products = view_products()
             product_ids = [p[0] for p in products]
@@ -136,7 +113,7 @@ def main():
                 st.info("No products available to update.")
 
         # DELETE PRODUCT
-        with tabs[3]:
+        with tabs[2]:
             st.subheader("Delete Product")
             products = view_products()
             product_ids = [p[0] for p in products]
@@ -162,3 +139,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
