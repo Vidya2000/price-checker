@@ -1,5 +1,6 @@
 import streamlit as st
 import sqlite3
+import pandas as pd
 
 # ---------- DATABASE FUNCTIONS ----------
 def create_table():
@@ -105,13 +106,8 @@ def main():
             st.subheader("All Products")
             products = view_products()
             if products:
-                st.dataframe(products, use_container_width=True, hide_index=True,
-                             column_config={
-                                 0: "Product ID",
-                                 1: "Product Name",
-                                 2: "Price",
-                                 3: "Stock"
-                             })
+                df = pd.DataFrame(products, columns=["Product ID", "Product Name", "Price", "Stock"])
+                st.dataframe(df, use_container_width=True)
             else:
                 st.info("No products available.")
 
@@ -155,7 +151,8 @@ def main():
     if st.button("Search"):
         product = fetch_product_by_id(search_id)
         if product:
-            st.success(f"🆔 {product[0]} | **{product[1]}** | 💲{product[2]} | Stock: {product[3]}")
+            df = pd.DataFrame([product], columns=["Product ID", "Product Name", "Price", "Stock"])
+            st.dataframe(df, use_container_width=True)
         else:
             st.error("❌ Product not found")
 
