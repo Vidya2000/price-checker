@@ -1,142 +1,92 @@
-import streamlit as st
 import sqlite3
+import csv
 
-# ---------- DATABASE FUNCTIONS ----------
-def create_table():
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS products
-                 (id TEXT PRIMARY KEY, name TEXT, price REAL, stock INTEGER)''')
-    conn.commit()
-    conn.close()
+DB_NAME = "inventory.db"
 
-def add_product(product_id, name, price, stock):
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("INSERT INTO products (id, name, price, stock) VALUES (?, ?, ?, ?)",
-              (product_id, name, price, stock))
-    conn.commit()
-    conn.close()
 
-def fetch_product_by_id(product_id):
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("SELECT id, name, price, stock FROM products WHERE id=?", (product_id,))
-    row = c.fetchone()
-    conn.close()
-    return row
-
-def update_product(product_id, name, price, stock):
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("UPDATE products SET name=?, price=?, stock=? WHERE id=?",
-              (name, price, stock, product_id))
-    conn.commit()
-    conn.close()
-
-def delete_product(product_id):
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM products WHERE id=?", (product_id,))
+def init_db():
+    """Initialize database with products table"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS products (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        price REAL NOT NULL,
+        stock INTEGER NOT NULL
+    )
+    """)
     conn.commit()
     conn.close()
 
 
-# ---------- STREAMLIT UI ----------
-def main():
-    st.title("📦 Inventory Management System")
+def import_products_from_csv(filename):
+    """Import products from CSV into database"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
 
-    create_table()
+    with open(filename, newline="", encoding="utf-8") as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            try:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO products (id, name, price, stock)
+                    VALUES (?, ?, ?, ?)
+                """, (row["id"], row["name"], float(row["price"]), int(row["stock"])))
+            except Exception as e:
+                print(f"Failed to insert row: {row} | Error: {e}")
 
-    # Session state for login
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
+    conn.commit()
+    conn.close()
+    print("Products imported successfully!")
 
-    # --- ADMIN LOGIN SECTION ---
-    if not st.session_state.logged_in:
-        st.subheader("🔑 Admin Login")
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
 
-        if st.button("Login"):
-            if username == "admin" and password == "admin":
-                st.session_state.logged_in = True
-                st.success("✅ Login successful! You now have admin access.")
-            else:
-                st.error("❌ Invalid username or password")
-    else:
-        st.success("✅ Logged in as Admin")
-        if st.button("Logout"):
-            st.session_state.logged_in = False
-            st.experimental_rerun()
+def update_stock(product_id, quantity):
+    """Update product stock after purchase"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
 
-        # --- ADMIN FEATURES ---
-        st.subheader("🛠️ Admin Controls")
-        tabs = st.tabs(["➕ Add Product", "✏️ Update Product", "🗑️ Delete Product"])
+    cursor.execute("SELECT stock FROM products WHERE id = ?", (product_id,))
+    result = cursor.fetchone()
 
-        # ADD PRODUCT
-        with tabs[0]:
-            st.subheader("Add a New Product")
-            product_id = st.text_input("Enter Product ID")
-            name = st.text_input("Enter Product Name")
-            price = st.number_input("Enter Price", min_value=0.0, format="%.2f")
-            stock = st.number_input("Enter Stock", min_value=0, step=1)
-
-            if st.button("Add Product"):
-                if product_id.strip() == "":
-                    st.error("⚠️ Product ID cannot be empty!")
-                else:
-                    try:
-                        add_product(product_id, name, price, stock)
-                        st.success(f"✅ Product '{name}' added successfully!")
-                    except sqlite3.IntegrityError:
-                        st.error("❌ Product ID already exists!")
-
-        # UPDATE PRODUCT
-        with tabs[1]:
-            st.subheader("Update Product")
-            products = view_products()
-            product_ids = [p[0] for p in products]
-
-            if product_ids:
-                selected_id = st.selectbox("Select Product ID to Update", product_ids)
-                product = [p for p in products if p[0] == selected_id][0]
-
-                new_name = st.text_input("Product Name", value=product[1])
-                new_price = st.number_input("Price", min_value=0.0, value=product[2], format="%.2f")
-                new_stock = st.number_input("Stock", min_value=0, value=product[3], step=1)
-
-                if st.button("Update"):
-                    update_product(selected_id, new_name, new_price, new_stock)
-                    st.success(f"✅ Product '{selected_id}' updated successfully!")
-            else:
-                st.info("No products available to update.")
-
-        # DELETE PRODUCT
-        with tabs[2]:
-            st.subheader("Delete Product")
-            products = view_products()
-            product_ids = [p[0] for p in products]
-
-            if product_ids:
-                selected_id = st.selectbox("Select Product ID to Delete", product_ids)
-                if st.button("Delete"):
-                    delete_product(selected_id)
-                    st.success(f"✅ Product '{selected_id}' deleted successfully!")
-            else:
-                st.info("No products available to delete.")
-
-    # --- SEARCH PRODUCT (Visible for everyone) ---
-    st.subheader("🔍 Search Product")
-    search_id = st.text_input("Enter Product ID to Search")
-    if st.button("Search"):
-        product = fetch_product_by_id(search_id)
-        if product:
-            st.success(f"🆔 {product[0]} | **{product[1]}** | 💲{product[2]} | Stock: {product[3]}")
+    if result:
+        current_stock = result[0]
+        if current_stock >= quantity:
+            cursor.execute("UPDATE products SET stock = stock - ? WHERE id = ?", (quantity, product_id))
+            conn.commit()
+            print("Stock updated successfully!")
         else:
-            st.error("❌ Product not found")
+            print("Not enough stock available.")
+    else:
+        print("Product not found.")
+
+    conn.close()
+
+
+def main():
+    init_db()
+
+    while True:
+        print("\n===== Inventory Management =====")
+        print("1. Import products from CSV")
+        print("2. Update stock")
+        print("3. Exit")
+
+        choice = input("Enter choice: ")
+
+        if choice == "1":
+            filename = input("Enter CSV filename (e.g., products.csv): ")
+            import_products_from_csv(filename)
+        elif choice == "2":
+            product_id = int(input("Enter product ID: "))
+            quantity = int(input("Enter quantity to reduce: "))
+            update_stock(product_id, quantity)
+        elif choice == "3":
+            print("Exiting program...")
+            break
+        else:
+            print("Invalid choice, try again.")
 
 
 if __name__ == "__main__":
     main()
-
