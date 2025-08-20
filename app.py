@@ -145,7 +145,7 @@ def main():
             else:
                 st.info("No products available to delete.")
 
-    # --- SEARCH PRODUCT (Dropdown instead of typing) ---
+    # --- SEARCH PRODUCT (Dropdown with Sell Feature) ---
     st.subheader("🔍 Search Product")
     products = view_products()
     product_ids = [p[0] for p in products]
@@ -157,6 +157,22 @@ def main():
             if product:
                 df = pd.DataFrame([product], columns=["Product ID", "Product Name", "Price", "Stock"])
                 st.dataframe(df, use_container_width=True)
+
+                # --- SELL PRODUCT FEATURE ---
+                st.subheader("💰 Sell Product")
+                sell_password = st.text_input("Enter Admin Password to Sell", type="password", key="sell_pwd")
+                quantity = st.number_input("Enter Quantity to Sell", min_value=1, step=1, key="sell_qty")
+
+                if st.button("Sell"):
+                    if sell_password != "admin":
+                        st.error("❌ Invalid password!")
+                    else:
+                        if quantity > product[3]:
+                            st.error("⚠️ Not enough stock available!")
+                        else:
+                            new_stock = product[3] - quantity
+                            update_product(product[0], product[1], product[2], new_stock)
+                            st.success(f"✅ Sold {quantity} unit(s) of '{product[1]}'. New stock: {new_stock}")
     else:
         st.info("No products available to search.")
 
