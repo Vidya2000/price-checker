@@ -2,6 +2,9 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 
+# ---------- CONFIG ----------
+SELL_PASSWORD = "sell123"   # Change this to your secure sell password
+
 # ---------- DATABASE FUNCTIONS ----------
 def create_table():
     conn = sqlite3.connect("inventory.db")
@@ -49,6 +52,21 @@ def delete_product(product_id):
     c.execute("DELETE FROM products WHERE id=?", (product_id,))
     conn.commit()
     conn.close()
+
+def reduce_stock(product_id, quantity):
+    conn = sqlite3.connect("inventory.db")
+    c = conn.cursor()
+    c.execute("SELECT stock FROM products WHERE id=?", (product_id,))
+    current_stock = c.fetchone()[0]
+    if current_stock >= quantity:
+        new_stock = current_stock - quantity
+        c.execute("UPDATE products SET stock=? WHERE id=?", (new_stock, product_id))
+        conn.commit()
+        conn.close()
+        return True, new_stock
+    else:
+        conn.close()
+        return False, current_stock
 
 
 # ---------- STREAMLIT UI ----------
@@ -145,7 +163,7 @@ def main():
             else:
                 st.info("No products available to delete.")
 
-    # --- SEARCH PRODUCT (Dropdown with Sell Feature) ---
+    # --- SEARCH PRODUCT (Dropdown + Sell Option) ---
     st.subheader("🔍 Search Product")
     products = view_products()
     product_ids = [p[0] for p in products]
@@ -158,21 +176,23 @@ def main():
                 df = pd.DataFrame([product], columns=["Product ID", "Product Name", "Price", "Stock"])
                 st.dataframe(df, use_container_width=True)
 
-                # --- SELL PRODUCT FEATURE ---
-                st.subheader("💰 Sell Product")
-                sell_password = st.text_input("Enter Admin Password to Sell", type="password", key="sell_pwd")
-                quantity = st.number_input("Enter Quantity to Sell", min_value=1, step=1, key="sell_qty")
+                # --- SELL FEATURE ---
+                if st.button("💰 Sell Product"):
+                    with st.form("sell_form", clear_on_submit=True):
+                        st.subheader("🔐 Sell Authentication")
+                        sell_password = st.text_input("Enter Sell Password", type="password")
+                        quantity = st.number_input("Enter Quantity", min_value=1, step=1)
 
-                if st.button("Sell"):
-                    if sell_password != "admin":
-                        st.error("❌ Invalid password!")
-                    else:
-                        if quantity > product[3]:
-                            st.error("⚠️ Not enough stock available!")
-                        else:
-                            new_stock = product[3] - quantity
-                            update_product(product[0], product[1], product[2], new_stock)
-                            st.success(f"✅ Sold {quantity} unit(s) of '{product[1]}'. New stock: {new_stock}")
+                        submitted = st.form_submit_button("Confirm Sell")
+                        if submitted:
+                            if sell_password == SELL_PASSWORD:
+                                success, updated_stock = reduce_stock(search_id, quantity)
+                                if success:
+                                    st.success(f"✅ Sold {quantity} unit(s). New stock: {updated_stock}")
+                                else:
+                                    st.error(f"❌ Not enough stock! Available: {updated_stock}")
+                            else:
+                                st.error("❌ Invalid sell password")
     else:
         st.info("No products available to search.")
 
