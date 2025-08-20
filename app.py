@@ -145,29 +145,20 @@ def main():
             else:
                 st.info("No products available to delete.")
 
-    # --- SEARCH PRODUCT (Dropdown + Manual in one) ---
+    # --- SEARCH PRODUCT (Dropdown instead of typing) ---
     st.subheader("🔍 Search Product")
-
     products = view_products()
     product_ids = [p[0] for p in products]
 
-    search_mode = st.selectbox("Select or Enter Product ID", ["Manual Entry"] + product_ids)
-
-    if search_mode == "Manual Entry":
-        search_id = st.text_input("Enter Product ID manually")
-    else:
-        search_id = search_mode
-
-    if st.button("Search"):
-        if search_id.strip() != "":
+    if product_ids:
+        search_id = st.selectbox("Select Product ID to Search", product_ids)
+        if st.button("Search"):
             product = fetch_product_by_id(search_id)
             if product:
                 df = pd.DataFrame([product], columns=["Product ID", "Product Name", "Price", "Stock"])
                 st.dataframe(df, use_container_width=True)
-            else:
-                st.error("❌ Product not found")
-        else:
-            st.warning("⚠️ Please enter a valid Product ID")
+    else:
+        st.info("No products available to search.")
 
 
 if __name__ == "__main__":
