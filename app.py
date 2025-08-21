@@ -1,78 +1,66 @@
 import streamlit as st
-import sqlite3
 import pandas as pd
+import os
 
 # ---------- CONFIG ----------
-SALE_PASSWORD = "sell123"   # password for selling (different from admin password)
+CSV_FILE = "inventory.csv"
+SALE_PASSWORD = "sell123"   # password for selling
 
-# ---------- DATABASE FUNCTIONS ----------
-def create_table():
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS products
-                 (id TEXT PRIMARY KEY, name TEXT, price REAL, stock INTEGER)''')
-    conn.commit()
-    conn.close()
+# ---------- CSV FUNCTIONS ----------
+def create_csv():
+    if not os.path.exists(CSV_FILE):
+        df = pd.DataFrame(columns=["id", "name", "price", "stock"])
+        df.to_csv(CSV_FILE, index=False)
+
+def read_csv():
+    return pd.read_csv(CSV_FILE)
+
+def save_csv(df):
+    df.to_csv(CSV_FILE, index=False)
 
 def add_product(product_id, name, price, stock):
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("INSERT INTO products (id, name, price, stock) VALUES (?, ?, ?, ?)",
-              (product_id, name, price, stock))
-    conn.commit()
-    conn.close()
+    df = read_csv()
+    if product_id in df["id"].values:
+        raise ValueError("Product ID already exists")
+    new_row = pd.DataFrame([[product_id, name, price, stock]], columns=df.columns)
+    df = pd.concat([df, new_row], ignore_index=True)
+    save_csv(df)
 
 def view_products():
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("SELECT id, name, price, stock FROM products")
-    rows = c.fetchall()
-    conn.close()
-    return rows
+    return read_csv().values.tolist()
 
 def fetch_product_by_id(product_id):
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("SELECT id, name, price, stock FROM products WHERE id=?", (product_id,))
-    row = c.fetchone()
-    conn.close()
-    return row
+    df = read_csv()
+    product = df[df["id"] == product_id]
+    if not product.empty:
+        return product.values[0]
+    return None
 
 def update_product(product_id, name, price, stock):
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("UPDATE products SET name=?, price=?, stock=? WHERE id=?",
-              (name, price, stock, product_id))
-    conn.commit()
-    conn.close()
+    df = read_csv()
+    df.loc[df["id"] == product_id, ["name", "price", "stock"]] = [name, price, stock]
+    save_csv(df)
 
 def delete_product(product_id):
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM products WHERE id=?", (product_id,))
-    conn.commit()
-    conn.close()
+    df = read_csv()
+    df = df[df["id"] != product_id]
+    save_csv(df)
 
 def reduce_stock(product_id, quantity):
-    conn = sqlite3.connect("inventory.db")
-    c = conn.cursor()
-    c.execute("SELECT stock FROM products WHERE id=?", (product_id,))
-    stock = c.fetchone()[0]
+    df = read_csv()
+    stock = df.loc[df["id"] == product_id, "stock"].values[0]
     if stock >= quantity:
-        c.execute("UPDATE products SET stock = stock - ? WHERE id=?", (quantity, product_id))
-        conn.commit()
-        conn.close()
+        df.loc[df["id"] == product_id, "stock"] = stock - quantity
+        save_csv(df)
         return True
     else:
-        conn.close()
         return False
-
 
 # ---------- STREAMLIT UI ----------
 def main():
-    st.title("📦 Inventory Management System")
+    st.title("📦 Inventory Management System (CSV Version)")
 
-    create_table()
+    create_csv()
 
     # Session state for login
     if "logged_in" not in st.session_state:
@@ -115,7 +103,7 @@ def main():
                     try:
                         add_product(product_id, name, price, stock)
                         st.success(f"✅ Product '{name}' added successfully!")
-                    except sqlite3.IntegrityError:
+                    except ValueError:
                         st.error("❌ Product ID already exists!")
 
         # VIEW PRODUCTS
@@ -136,11 +124,11 @@ def main():
 
             if product_ids:
                 selected_id = st.selectbox("Select Product ID to Update", product_ids)
-                product = [p for p in products if p[0] == selected_id][0]
+                product = fetch_product_by_id(selected_id)
 
                 new_name = st.text_input("Product Name", value=product[1])
-                new_price = st.number_input("Price", min_value=0.0, value=product[2], format="%.2f")
-                new_stock = st.number_input("Stock", min_value=0, value=product[3], step=1)
+                new_price = st.number_input("Price", min_value=0.0, value=float(product[2]), format="%.2f")
+                new_stock = st.number_input("Stock", min_value=0, value=int(product[3]), step=1)
 
                 if st.button("Update"):
                     update_product(selected_id, new_name, new_price, new_stock)
@@ -168,12 +156,11 @@ def main():
     product_ids = [p[0] for p in products]
 
     if product_ids:
-        # Default blank option at start
         search_id = st.selectbox("Select Product ID to Search", [""] + product_ids)
 
         if search_id != "":
             product = fetch_product_by_id(search_id)
-            if product:
+            if product is not None:
                 df = pd.DataFrame([product], columns=["Product ID", "Product Name", "Price", "Stock"])
                 st.dataframe(df, use_container_width=True)
 
@@ -188,7 +175,6 @@ def main():
                             success = reduce_stock(search_id, qty)
                             if success:
                                 st.success(f"✅ Sold {qty} units of '{product[1]}'. Stock updated!")
-                                # Refresh product details after selling
                                 updated_product = fetch_product_by_id(search_id)
                                 updated_df = pd.DataFrame([updated_product], columns=["Product ID", "Product Name", "Price", "Stock"])
                                 st.dataframe(updated_df, use_container_width=True)
@@ -198,7 +184,6 @@ def main():
                             st.error("❌ Invalid Sale Password!")
     else:
         st.info("No products available to search.")
-
 
 if __name__ == "__main__":
     main()
